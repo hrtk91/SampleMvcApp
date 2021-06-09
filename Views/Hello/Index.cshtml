@@ -1,0 +1,9 @@
+@{
+    var list = (List<string>)ViewData["Message"];
+    ViewData["Title"] = list.Aggregate((prev, cur) => prev + ',' + cur);
+}
+
+<div class="text-center">
+    <h1>Index</h1>
+    <p>This is sample page.</p>
+</div>
