@@ -35,7 +35,9 @@ namespace SampleMvcApp
                     .AddDefaultUI()
                     .AddDefaultTokenProviders();
             
-            services.AddRazorPages();
+            services.AddRazorPages(options => {
+                options.Conventions.AuthorizePage("/Product");
+            });
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -61,6 +63,16 @@ namespace SampleMvcApp
 
             app.UseEndpoints(endpoints =>
             {
+                // endpoints.MapControllerRoute(
+                //     name: "User",
+                //     pattern: "User/{action=Index}/{id?}",
+                //     defaults: new { controller = "User" });
+
+                endpoints.MapControllerRoute(
+                    name: "Role",
+                    pattern: "Role/{action=Index}/{name?}",
+                    defaults: new { controller = "Role" });
+
                 endpoints.MapControllerRoute(
                     name: "default",
                     pattern: "{controller=Product}/{action=Index}/{id?}");

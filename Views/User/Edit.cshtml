@@ -1,0 +1,47 @@
+@model SampleMvcApp.ViewModels.User.EditViewModel
+
+@{
+    ViewData["Title"] = "Edit";
+    var user = Model.User;
+    var userRoles = Model.UserRoles;
+    var roles = Model.Roles;
+}
+
+<h1>Edit</h1>
+
+<h4>Role</h4>
+<hr />
+<div class="row">
+    <div class="col-md-4">
+        <form asp-action="Edit">
+            <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+            <input type="hidden" asp-for="@user.Id" />
+            <div class="form-group">
+                <label asp-for="@user.Email" class="control-label"></label>
+                <input asp-for="@user.Email" class="form-control" />
+                <span asp-validation-for="@user.Email" class="text-danger"></span>
+            </div>
+            <div class="form-group">
+                <label class="control-label">Roles</label>
+@foreach (var role in roles)
+{
+                <div class="custom-control custom-checkbox">
+                    <input type="checkbox" class="custom-control-input" name="Roles" id="@role" value="@role" @Html.Raw(userRoles.Any(r => r == role) ? "checked" : "") />
+                    <label for="@role" class="custom-control-label">@role</label>
+                </div>
+}
+            </div>
+            <div class="form-group">
+                <input type="submit" value="Save" class="btn btn-primary" />
+            </div>
+        </form>
+    </div>
+</div>
+
+<div>
+    <a asp-action="Index">Back to List</a>
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}

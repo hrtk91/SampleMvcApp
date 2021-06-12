@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
@@ -44,6 +45,7 @@ namespace SampleMvcApp.Controllers
         }
 
         // GET: Product/Create
+        [Authorize(Roles = "Admin")]
         public IActionResult Create()
         {
             return View();
@@ -54,6 +56,7 @@ namespace SampleMvcApp.Controllers
         // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Create([Bind("ProductId,Name,Price")] Product product)
         {
             if (ModelState.IsValid)
@@ -81,7 +84,7 @@ namespace SampleMvcApp.Controllers
                 return NotFound();
             }
 
-            var vm = new ProductEditViewModel(product, genres, product.ProductGenres.Select(x => x.GenreId));
+            var vm = new ViewModels.Product.EditViewModel(product, genres, product.ProductGenres.Select(x => x.GenreId));
 
             return View(vm);
         }
@@ -141,7 +144,7 @@ namespace SampleMvcApp.Controllers
                 return RedirectToAction(nameof(Index));
             }
 
-            var vm = new ProductEditViewModel(product, await _context.Genre.ToListAsync(), genres);
+            var vm = new ViewModels.Product.EditViewModel(product, await _context.Genre.ToListAsync(), genres);
             return View(vm);
         }
 

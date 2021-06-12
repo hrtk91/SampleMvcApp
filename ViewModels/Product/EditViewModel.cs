@@ -2,15 +2,15 @@ using SampleMvcApp.Models;
 using System.Linq;
 using System.Collections.Generic;
 
-namespace SampleMvcApp.ViewModels
+namespace SampleMvcApp.ViewModels.Product
 {
-    public class ProductEditViewModel
+    public class EditViewModel
     {
-        public Product Product { get; set; }
+        public Models.Product Product { get; set; }
         public IEnumerable<Genre> Genres { get; set; }
         public IEnumerable<int> SelectedGenres { get; set; }
 
-        public ProductEditViewModel(Product product, IEnumerable<Genre> genres, IEnumerable<int> selectedGenres)
+        public EditViewModel(Models.Product product, IEnumerable<Genre> genres, IEnumerable<int> selectedGenres)
         {
             Product = product;
             Genres = genres;
