@@ -19,6 +19,7 @@ namespace SampleMvcApp.Models
         [Range(0, 100)]
         public int Discount { get; set; }
 
+        public Shop Shop { get; set; }
         public IList<ProductGenre> ProductGenres { get; set; } = new List<ProductGenre>();
     }
 }

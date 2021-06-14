@@ -13,6 +13,8 @@ using SampleMvcApp.Models;
 
         public DbSet<SampleMvcApp.Models.Genre> Genre { get; set; }
 
+        public DbSet<SampleMvcApp.Models.Shop> Shop { get; set; }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);

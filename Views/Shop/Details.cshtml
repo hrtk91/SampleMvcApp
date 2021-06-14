@@ -1,0 +1,41 @@
+@model SampleMvcApp.Models.Shop
+
+@{
+    ViewData["Title"] = "Details";
+}
+
+<h1>Details</h1>
+
+<div>
+    <h4>Shop</h4>
+    <hr />
+    <dl class="row">
+        <dt class = "col-sm-2">
+            @Html.DisplayNameFor(model => model.Name)
+        </dt>
+        <dd class = "col-sm-10">
+            @Html.DisplayFor(model => model.Name)
+        </dd>
+        <dt class = "col-sm-2">
+            @Html.DisplayNameFor(model => model.Description)
+        </dt>
+        <dd class = "col-sm-10">
+            @Html.DisplayFor(model => model.Description)
+        </dd>
+        <dt class = "col-sm-2">
+            @Html.DisplayNameFor(model => model.Products)
+        </dt>
+        <dd class = "col-sm-10"></dd>
+@foreach (var item in Model.Products)
+{
+        <dt class = "col-sm-2"></dt>
+        <dd class = "col-sm-10">
+            <a asp-controller="Product" asp-action="Details" asp-route-id="@item.ProductId">@item.Name</a>
+        </dd>
+}
+    </dl>
+</div>
+<div>
+    <a asp-action="Edit" asp-route-id="@Model.ShopId">Edit</a> |
+    <a asp-action="Index">Back to List</a>
+</div>

@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 using SampleMvcApp.Models;
 using SampleMvcApp.ViewModels;
+using System.Security.Claims;
 
 namespace SampleMvcApp.Controllers
 {
@@ -23,7 +24,7 @@ namespace SampleMvcApp.Controllers
         // GET: Product
         public async Task<IActionResult> Index()
         {
-            return View(await _context.Product.ToListAsync());
+            return View(await _context.Product.Include(x => x.Shop).ThenInclude(x => x.Owner).ToListAsync());
         }
 
         // GET: Product/Details/5
@@ -45,10 +46,11 @@ namespace SampleMvcApp.Controllers
         }
 
         // GET: Product/Create
-        [Authorize(Roles = "Admin")]
-        public IActionResult Create()
+        [Authorize(Roles = "Seller")]
+        public IActionResult Create(int shopId)
         {
-            return View();
+            var vm = new ViewModels.Product.CreateViewModel(shopId);
+            return View(vm);
         }
 
         // POST: Product/Create
@@ -56,12 +58,32 @@ namespace SampleMvcApp.Controllers
         // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> Create([Bind("ProductId,Name,Price")] Product product)
+        [Authorize(Roles = "Seller")]
+        public async Task<IActionResult> Create([Bind("ProductId,Name,Price")] Product product, int shopId)
         {
+            var userId = User.FindFirst(x => x.Type == ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId))
+            {
+                return NotFound();
+            }
+
+            var shop = await _context.Shop
+                .Include(x => x.Owner)
+                .Include(x => x.Products)
+                .FirstOrDefaultAsync(x => x.ShopId == shopId);
+            if (shop == null)
+            {
+                return NotFound();
+            }
+
+            if (shop.Owner.Id != userId)
+            {
+                return NotFound();
+            }
+
             if (ModelState.IsValid)
             {
-                _context.Add(product);
+                shop.Products.Add(product);
                 await _context.SaveChangesAsync();
                 return RedirectToAction(nameof(Index));
             }
@@ -69,6 +91,7 @@ namespace SampleMvcApp.Controllers
         }
 
         // GET: Product/Edit/5
+        [Authorize(Roles = "Seller")]
         public async Task<IActionResult> Edit(int? id)
         {
             if (id == null)
@@ -78,7 +101,7 @@ namespace SampleMvcApp.Controllers
 
             var product = await _context.Product
                 .Include(p => p.ProductGenres).ThenInclude(pg => pg.Genre).FirstOrDefaultAsync(p => p.ProductId == id);
-            var genres = await _context.Genre.ToListAsync();
+            var genres = await _context.Genre.OrderBy(x => x.Name).ToListAsync();
             if (product == null || genres == null)
             {
                 return NotFound();
@@ -94,6 +117,7 @@ namespace SampleMvcApp.Controllers
         // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [Authorize(Roles = "Seller")]
         public async Task<IActionResult> Edit(int id,
             [Bind("ProductId,Name,Price,Description,Discount,ProductGenres")] Product product,
             [Bind("Genres")] IEnumerable<int> genres)
@@ -107,7 +131,7 @@ namespace SampleMvcApp.Controllers
             {
                 var productToUpdate = await _context.Product.Include(p => p.ProductGenres).FirstOrDefaultAsync(p => p.ProductId == id);
 
-                if (await TryUpdateModelAsync(productToUpdate, "product", x => x.Description, x => x.Discount, x => x.Name, x => x.Price))
+                if (await TryUpdateModelAsync(productToUpdate, "Product", x => x.Description, x => x.Discount, x => x.Name, x => x.Price))
                 {
                     var beforeGenres = productToUpdate.ProductGenres.Select(pg => pg.GenreId);
                     var afterGenres = genres;
@@ -149,6 +173,7 @@ namespace SampleMvcApp.Controllers
         }
 
         // GET: Product/Delete/5
+        [Authorize(Roles = "Seller")]
         public async Task<IActionResult> Delete(int? id)
         {
             if (id == null)
@@ -169,6 +194,7 @@ namespace SampleMvcApp.Controllers
         // POST: Product/Delete/5
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
+        [Authorize(Roles = "Seller")]
         public async Task<IActionResult> DeleteConfirmed(int id)
         {
             var product = await _context.Product.FindAsync(id);
