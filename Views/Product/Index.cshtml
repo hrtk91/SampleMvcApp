@@ -1,14 +1,13 @@
+@using System.Security.Claims
 @model IEnumerable<SampleMvcApp.Models.Product>
 
 @{
     ViewData["Title"] = "Index";
+    var userId = User.FindFirst(x => x.Type == ClaimTypes.NameIdentifier)?.Value ?? "";
 }
 
 <h1>Index</h1>
 
-<p>
-    <a asp-action="Create">Create New</a>
-</p>
 <table class="table">
     <thead>
         <tr>
@@ -18,6 +17,9 @@
             <th>
                 @Html.DisplayNameFor(model => model.Price)
             </th>
+            <th>
+                @Html.DisplayNameFor(model => model.Shop)
+            </th>
             <th></th>
         </tr>
     </thead>
@@ -25,15 +27,28 @@
 @foreach (var item in Model) {
         <tr>
             <td>
-                @Html.DisplayFor(modelItem => item.Name)
+                <a asp-action="Details" asp-route-id="@item.ProductId">@item.Name</a>
             </td>
             <td>
                 @Html.DisplayFor(modelItem => item.Price)
             </td>
             <td>
-                <a asp-action="Edit" asp-route-id="@item.ProductId">Edit</a> |
-                <a asp-action="Details" asp-route-id="@item.ProductId">Details</a> |
+                @Html.DisplayFor(modelItem => item.Shop.Name)
+            </td>
+            <td>
+@if (item.Shop.Owner.Id != userId)
+{
+                <form style="display: inline;" asp-controller="Cart" asp-action="Add" method="post">
+                    <input type="hidden" name="ProductId" value="@item.ProductId" />
+                    <input type="hidden" name="UserId" value="@User.FindFirstValue(ClaimTypes.NameIdentifier)" />
+                    <input class="btn btn-primary btn-sm" type="submit" value="Add To Cart" />
+                </form>
+}
+@if (item.Shop.Owner.Id == userId || User.IsInRole("Admin"))
+{
+                <a asp-action="Edit" asp-route-id="@item.ProductId">Edit</a> @Html.Raw("|");
                 <a asp-action="Delete" asp-route-id="@item.ProductId">Delete</a>
+}
             </td>
         </tr>
 }

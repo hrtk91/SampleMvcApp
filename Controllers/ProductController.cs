@@ -9,6 +9,7 @@ using Microsoft.EntityFrameworkCore;
 using SampleMvcApp.Models;
 using SampleMvcApp.ViewModels;
 using System.Security.Claims;
+using SampleMvcApp.Data;
 
 namespace SampleMvcApp.Controllers
 {
@@ -61,7 +62,7 @@ namespace SampleMvcApp.Controllers
         [Authorize(Roles = "Seller")]
         public async Task<IActionResult> Create([Bind("ProductId,Name,Price")] Product product, int shopId)
         {
-            var userId = User.FindFirst(x => x.Type == ClaimTypes.NameIdentifier)?.Value;
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             if (string.IsNullOrEmpty(userId))
             {
                 return NotFound();
@@ -131,7 +132,7 @@ namespace SampleMvcApp.Controllers
             {
                 var productToUpdate = await _context.Product.Include(p => p.ProductGenres).FirstOrDefaultAsync(p => p.ProductId == id);
 
-                if (await TryUpdateModelAsync(productToUpdate, "Product", x => x.Description, x => x.Discount, x => x.Name, x => x.Price))
+                if (await TryUpdateModelAsync(productToUpdate, nameof(Product), x => x.Description, x => x.Discount, x => x.Name, x => x.Price))
                 {
                     var beforeGenres = productToUpdate.ProductGenres.Select(pg => pg.GenreId);
                     var afterGenres = genres;

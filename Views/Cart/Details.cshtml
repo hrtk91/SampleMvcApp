@@ -1,0 +1,65 @@
+@model SampleMvcApp.Models.Cart
+
+@{
+    ViewData["Title"] = "Details";
+}
+
+<div>
+    <h4>Cart</h4>
+    <hr />
+</div>
+<div class="container">
+    <div class="row">
+        <div class="col-9">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>
+                            @Html.DisplayName(nameof(Product.Name))
+                        </th>
+                        <th>
+                            @Html.DisplayName(nameof(Product.Price))
+                        </th>
+                        <th>
+                            @Html.DisplayName(nameof(Shop.Name))
+                        </th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+@foreach (var item in Model.Products)
+{
+                    <tr>
+                        <td>
+                            <a asp-action="Details" asp-route-id="@item.ProductId">@item.Name</a>
+                        </td>
+                        <td>
+                            @Html.DisplayFor(modelItem => item.Price)
+                        </td>
+                        <td>
+                            @Html.DisplayFor(modelItem => item.Shop.Name)
+                        </td>
+                        <td>
+                            <form asp-action="Remove" method="Post">
+                                <input type="hidden" name="ProductId" value="@item.ProductId" />
+                                <input class="btn btn-danger btn-sm" type="submit" value="Remove" />
+                            </form>
+                        </td>
+                    </tr>
+}
+                </tbody>
+            </table>
+        </div> @* class="col-sm col-8" *@
+        <div class="col-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h5 class="card-title">購入金額</h5>
+                    <p class="card-text">@Model.TotalPrice()円</p>
+                    <form asp-action="Buy" method="Post">
+                        <input class="btn btn-primary" type="submit" Value="購入" />
+                    </form>
+                </div>
+            </div>
+        </div> @* class="col-sm col-4" *@
+    </div> @* class="row" *@
+</div>

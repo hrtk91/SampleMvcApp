@@ -1,0 +1,46 @@
+@model IEnumerable<SampleMvcApp.Models.Receipt>
+
+@{
+    ViewData["Title"] = "BuyComplete";
+}
+
+<h1>購入完了</h1>
+
+<div class="container">
+    <div class="row">
+        <div class="col-9">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>
+                            @Html.DisplayNameFor(model => model.Product.Name)
+                        </th>
+                        <th>
+                            @Html.DisplayNameFor(model => model.Price)
+                        </th>
+                        <th>
+                            @Html.DisplayNameFor(model => model.Product.Shop)
+                        </th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+@foreach (var item in Model)
+{
+                    <tr>
+                        <td>
+                            <a asp-action="Details" asp-route-id="@item.Product.ProductId">@item.Product.Name</a>
+                        </td>
+                        <td>
+                            @Html.DisplayFor(modelItem => item.Price)
+                        </td>
+                        <td>
+                            @Html.DisplayFor(modelItem => item.Product.Shop.Name)
+                        </td>
+                    </tr>
+}
+                </tbody>
+            </table>
+        </div> @* class="col-sm col-9" *@
+    </div> @* class="row" *@
+</div>

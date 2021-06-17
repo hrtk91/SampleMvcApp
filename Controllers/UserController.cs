@@ -35,8 +35,8 @@ namespace SampleMvcApp.Controllers
                 return NotFound();
             }
 
-            var userRoles = (await _userManager.GetRolesAsync(user)).DefaultIfEmpty().ToList();
-            var roles = await _roleManager.Roles.Select(x => x.Name).ToListAsync();
+            var userRoles = (await _userManager.GetRolesAsync(user)).ToList();
+            var roles = await _roleManager.Roles.OrderBy(x => x.Name).Select(x => x.Name).ToListAsync();
 
             var vm = new ViewModels.User.EditViewModel(user, userRoles, roles);
 

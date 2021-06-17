@@ -10,6 +10,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity;
+using SampleMvcApp.Data;
 
 namespace SampleMvcApp
 {
@@ -35,14 +36,12 @@ namespace SampleMvcApp
                     .AddDefaultUI()
                     .AddDefaultTokenProviders();
             
-            services.AddRazorPages(options => {
-                options.Conventions.AuthorizePage("/Product");
-            })
-            .AddRazorRuntimeCompilation();
+            services.AddRazorPages(options => options.Conventions.AuthorizePage("/Product"))
+                    .AddRazorRuntimeCompilation();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
-        public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
+        public void Configure(IApplicationBuilder app, IWebHostEnvironment env, UserManager<IdentityUser> userManager)
         {
             if (env.IsDevelopment())
             {
@@ -55,12 +54,14 @@ namespace SampleMvcApp
                 app.UseHsts();
             }
             app.UseHttpsRedirection();
+            app.UseStatusCodePagesWithReExecute("/StatusCode", "?code={0}");
             app.UseStaticFiles();
 
             app.UseRouting();
 
             app.UseAuthentication();
             app.UseAuthorization();
+
 
             app.UseEndpoints(endpoints =>
             {
@@ -79,6 +80,8 @@ namespace SampleMvcApp
                     pattern: "{controller=Product}/{action=Index}/{id?}");
                 endpoints.MapRazorPages();
             });
+
+            DbInitializer.CreateAdministrator(userManager).Wait();
         }
     }
 }

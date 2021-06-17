@@ -20,7 +20,7 @@ namespace SampleMvcApp.Controllers
 
         public IActionResult Index()
         {
-            return View(_roleManager.Roles.ToList());
+            return View(_roleManager.Roles.OrderBy(x => x.Name).ToList());
         }
 
         public IActionResult Create()

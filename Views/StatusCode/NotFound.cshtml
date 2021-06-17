@@ -1,0 +1,11 @@
+@model string
+@{
+    ViewData["Title"] = "404 NotFound";
+}
+
+<h1>Not Found</h1>
+
+@if (!string.IsNullOrEmpty(Model))
+{
+    <p>RequestUrl:@Model</p>
+}
