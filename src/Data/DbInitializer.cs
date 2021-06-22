@@ -6,7 +6,7 @@ namespace SampleMvcApp.Data
     public static class DbInitializer
     {
         public static string UserName { get; } = "admin@mail.com";
-        public static async Task CreateAdministrator(UserManager<IdentityUser> userManager)
+        public static async Task CreateAdministrator(UserManager<IdentityUser> userManager, RoleManager<IdentityRole> roleManager)
         {
             var name = UserName;
             var adminUser = await userManager.FindByNameAsync(name);
@@ -21,7 +21,10 @@ namespace SampleMvcApp.Data
                 if (adminUser == null) return;
             }
 
-            await userManager.AddToRoleAsync(adminUser, "Admin");
+            if (await roleManager.RoleExistsAsync("Admin"))
+            {
+                await userManager.AddToRoleAsync(adminUser, "Admin");
+            }
         }
     }
 }

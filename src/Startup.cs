@@ -29,7 +29,7 @@ namespace SampleMvcApp
             services.AddControllersWithViews();
 
             services.AddDbContext<SampleMVCAppContext>(options =>
-                    options.UseSqlServer(Configuration.GetConnectionString("SampleMVCAppContext")));
+                options.UseSqlServer(Configuration.GetConnectionString("SampleMVCAppContext")));
 
             services.AddIdentity<IdentityUser, IdentityRole>()
                     .AddEntityFrameworkStores<SampleMVCAppContext>()
@@ -41,7 +41,7 @@ namespace SampleMvcApp
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
-        public void Configure(IApplicationBuilder app, IWebHostEnvironment env, UserManager<IdentityUser> userManager)
+        public void Configure(IApplicationBuilder app, IWebHostEnvironment env, UserManager<IdentityUser> userManager, RoleManager<IdentityRole> roleManager)
         {
             if (env.IsDevelopment())
             {
@@ -53,7 +53,7 @@ namespace SampleMvcApp
                 // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
                 app.UseHsts();
             }
-            app.UseHttpsRedirection();
+            // app.UseHttpsRedirection();
             app.UseStatusCodePagesWithReExecute("/StatusCode", "?code={0}");
             app.UseStaticFiles();
 
@@ -65,11 +65,6 @@ namespace SampleMvcApp
 
             app.UseEndpoints(endpoints =>
             {
-                // endpoints.MapControllerRoute(
-                //     name: "User",
-                //     pattern: "User/{action=Index}/{id?}",
-                //     defaults: new { controller = "User" });
-
                 endpoints.MapControllerRoute(
                     name: "Role",
                     pattern: "Role/{action=Index}/{name?}",
@@ -81,7 +76,7 @@ namespace SampleMvcApp
                 endpoints.MapRazorPages();
             });
 
-            DbInitializer.CreateAdministrator(userManager).Wait();
+            DbInitializer.CreateAdministrator(userManager, roleManager).Wait();
         }
     }
 }

@@ -1,0 +1,14 @@
+version: '3'
+services:
+    web:
+        depends_on:
+            - mssql
+        build: ./src/. 
+        ports:
+            - "5001:5001"
+            - "44349:44349"
+    mssql:
+        build: ./db/.
+        ports:
+            - "1433:1433"
+        

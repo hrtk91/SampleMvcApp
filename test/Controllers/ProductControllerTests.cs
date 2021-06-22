@@ -356,7 +356,7 @@ namespace SampleMvcApp.Tests
         private async Task CreateAdministrator(UserManager<IdentityUser> userManager, RoleManager<IdentityRole> roleManager)
         {
             await roleManager.CreateAsync(new IdentityRole("Admin") { NormalizedName = "ADMIN" });
-            await DbInitializer.CreateAdministrator(userManager);
+            await DbInitializer.CreateAdministrator(userManager, roleManager);
         }
     }
 }
