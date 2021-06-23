@@ -2,7 +2,7 @@
 Asp.Net CoreのMVCでNetShopを作成
 
 ## Docker
-docker-compose up --build
+`docker-compose up --build`
 
 ## VSCode
-launch Debug
+launch `Debug` profile
