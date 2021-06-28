@@ -21,5 +21,7 @@ namespace SampleMvcApp.Models
 
         public Shop Shop { get; set; }
         public IList<ProductGenre> ProductGenres { get; set; } = new List<ProductGenre>();
+
+        public IList<ProductImage> ProductImages { get; set; } = new List<ProductImage>();
     }
 }

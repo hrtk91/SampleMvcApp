@@ -14,13 +14,15 @@ using SampleMvcApp.Models;
 namespace SampleMvcApp.Controllers
 {
     [Authorize]
-    public class CartController : ControllerBase
+    public class CartController : Controller
     {
         private readonly SampleMVCAppContext _context;
+        private UserManager<IdentityUser> _userManager;
 
-        public CartController(SampleMVCAppContext context, UserManager<IdentityUser> userManager) : base(userManager)
+        public CartController(SampleMVCAppContext context, UserManager<IdentityUser> userManager) : base()
         {
             _context = context;
+            _userManager = userManager;
         }
 
         // GET: Cart
@@ -190,6 +192,11 @@ namespace SampleMvcApp.Controllers
             }
 
             return cart;
+        }
+
+        private async Task<IdentityUser> GetCurrentUser()
+        {
+            return await _userManager.FindByIdAsync(User.FindFirst(ClaimTypes.NameIdentifier).Value);
         }
     }
 }

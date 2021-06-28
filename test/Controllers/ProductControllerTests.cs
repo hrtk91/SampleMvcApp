@@ -16,20 +16,33 @@ using Microsoft.Extensions.DependencyInjection;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
 using Xunit.Abstractions;
+using SampleMvcApp.Services;
+using Microsoft.AspNetCore.Hosting;
 
 namespace SampleMvcApp.Tests
 {
     public class ProductControllerTests : IDisposable
     {
-        private readonly ITestOutputHelper StdOut;
+        private readonly ITestOutputHelper _stdout;
+        private Mock<IWebHostEnvironment> _env;
+        private Mock<IProductImageService> _PIS { get; }
+
+        private ServiceProvider _provider;
+        private ILogger<ProductController> _logger;
+        private SampleMVCAppContext _context;
+
         public ProductControllerTests(ITestOutputHelper testOutputHelper)
         {
-            StdOut = testOutputHelper;
+            _stdout = testOutputHelper;
 
-            using (var scope = CreateServiceProvider().CreateScope())
-            using (var context = scope.ServiceProvider.GetService<SampleMVCAppContext>())
-            using (var userManager = scope.ServiceProvider.GetService<UserManager<IdentityUser>>())
-            using (var roleManager = scope.ServiceProvider.GetService<RoleManager<IdentityRole>>())
+            _env = new Mock<IWebHostEnvironment>();
+            _PIS = new Mock<IProductImageService>();
+            _provider = CreateServiceProvider();
+            _logger = _provider.GetService<ILoggerFactory>().CreateLogger<ProductController>();
+            _context = _provider.GetService<SampleMVCAppContext>();
+
+            using (var userManager = _provider.GetService<UserManager<IdentityUser>>())
+            using (var roleManager = _provider.GetService<RoleManager<IdentityRole>>())
             {
                 CreateAdministrator(userManager, roleManager).Wait();
             }
@@ -37,20 +50,16 @@ namespace SampleMvcApp.Tests
 
         public void Dispose()
         {
-            using (var scope = CreateServiceProvider().CreateScope())
-            using (var context = scope.ServiceProvider.GetService<SampleMVCAppContext>())
-            {
-                context.Database.EnsureDeleted();
-            }
+            _context.Database.EnsureDeleted();
+            _context.Dispose();
+            _provider.Dispose();
         }
         
         [Fact]
         public async Task IndexTest()
         {
-            using (var scope = CreateServiceProvider().CreateScope())
-            using (var context = scope.ServiceProvider.GetService<SampleMVCAppContext>())
-            using (var userManager = scope.ServiceProvider.GetService<UserManager<IdentityUser>>())
-            using (var roleManager = scope.ServiceProvider.GetService<RoleManager<IdentityRole>>())
+            using (var userManager = _provider.GetService<UserManager<IdentityUser>>())
+            using (var roleManager = _provider.GetService<RoleManager<IdentityRole>>())
             {
                 #region Arrange
                 var addProduct = new Models.Product()
@@ -59,13 +68,13 @@ namespace SampleMvcApp.Tests
                     Shop = new Models.Shop()
                     {
                         Name = "Shop",
-                        Owner = await context.Users.FirstOrDefaultAsync(x => x.UserName == "admin@mail.com"),
+                        Owner = await _context.Users.FirstOrDefaultAsync(x => x.UserName == "admin@mail.com"),
                     }
                 };
-                await context.Product.AddAsync(addProduct);
-                await context.SaveChangesAsync();
+                await _context.Product.AddAsync(addProduct);
+                await _context.SaveChangesAsync();
 
-                var c = new ProductController(context);
+                var c = new ProductController(_context, _logger, _PIS.Object);
                 #endregion
 
                 #region Action
@@ -87,26 +96,24 @@ namespace SampleMvcApp.Tests
         [Fact]
         public async Task CreatePostTest_正常()
         {
-            using (var scope = CreateServiceProvider().CreateScope())
-            using (var context = scope.ServiceProvider.GetService<SampleMVCAppContext>())
-            using (var userManager = scope.ServiceProvider.GetService<UserManager<IdentityUser>>())
-            using (var roleManager = scope.ServiceProvider.GetService<RoleManager<IdentityRole>>())
+            using (var userManager = _provider.GetService<UserManager<IdentityUser>>())
+            using (var roleManager = _provider.GetService<RoleManager<IdentityRole>>())
             {
                 #region Arrange
                 var shop = new Models.Shop()
                 {
                     ShopId = 1, Name = "Shop",
-                    Owner = await context.Users.FirstOrDefaultAsync(x => x.UserName == DbInitializer.UserName),
+                    Owner = await _context.Users.FirstOrDefaultAsync(x => x.UserName == DbInitializer.UserName),
                 };
-                await context.Shop.AddAsync(shop);
-                await context.SaveChangesAsync();
+                await _context.Shop.AddAsync(shop);
+                await _context.SaveChangesAsync();
 
                 var product = new Models.Product()
                 {
                     Name = "Test", Price = 0,
                 };
 
-                var c = new ProductController(context);
+                var c = new ProductController(_context, _logger, _PIS.Object);
                 c.ControllerContext = new ControllerContext()
                 {
                     HttpContext = new DefaultHttpContext()
@@ -115,7 +122,7 @@ namespace SampleMvcApp.Tests
                             new ClaimsIdentity(
                                 new List<Claim>()
                                 {
-                                    new Claim(ClaimTypes.NameIdentifier, (await context.Users.FirstAsync(x => x.UserName == DbInitializer.UserName)).Id)
+                                    new Claim(ClaimTypes.NameIdentifier, (await _context.Users.FirstAsync(x => x.UserName == DbInitializer.UserName)).Id)
                                 },
                                 "TestAuthentication"
                             )
@@ -138,26 +145,24 @@ namespace SampleMvcApp.Tests
         [Fact]
         public async Task CreatePostTest_User不一致NotFound()
         {
-            using (var scope = CreateServiceProvider().CreateScope())
-            using (var context = scope.ServiceProvider.GetService<SampleMVCAppContext>())
-            using (var userManager = scope.ServiceProvider.GetService<UserManager<IdentityUser>>())
-            using (var roleManager = scope.ServiceProvider.GetService<RoleManager<IdentityRole>>())
+            using (var userManager = _provider.GetService<UserManager<IdentityUser>>())
+            using (var roleManager = _provider.GetService<RoleManager<IdentityRole>>())
             {
                 #region Arrange
                 var shop = new Models.Shop()
                 {
                     ShopId = 1, Name = "Shop",
-                    Owner = await context.Users.FirstOrDefaultAsync(x => x.UserName == DbInitializer.UserName),
+                    Owner = await _context.Users.FirstOrDefaultAsync(x => x.UserName == DbInitializer.UserName),
                 };
-                await context.Shop.AddAsync(shop);
-                await context.SaveChangesAsync();
+                await _context.Shop.AddAsync(shop);
+                await _context.SaveChangesAsync();
 
                 var product = new Models.Product()
                 {
                     Name = "Test", Price = 0,
                 };
 
-                var c = new ProductController(context);
+                var c = new ProductController(_context, _logger, _PIS.Object);
                 c.ControllerContext = new ControllerContext()
                 {
                     HttpContext = new DefaultHttpContext()
@@ -189,10 +194,8 @@ namespace SampleMvcApp.Tests
         [Fact]
         public async Task CreatePostTest_ShopなしNotFound()
         {
-            using (var scope = CreateServiceProvider().CreateScope())
-            using (var context = scope.ServiceProvider.GetService<SampleMVCAppContext>())
-            using (var userManager = scope.ServiceProvider.GetService<UserManager<IdentityUser>>())
-            using (var roleManager = scope.ServiceProvider.GetService<RoleManager<IdentityRole>>())
+            using (var userManager = _provider.GetService<UserManager<IdentityUser>>())
+            using (var roleManager = _provider.GetService<RoleManager<IdentityRole>>())
             {
                 #region Arrange
                 // ショップを作成しない
@@ -209,7 +212,7 @@ namespace SampleMvcApp.Tests
                     Name = "Test", Price = 0,
                 };
 
-                var c = new ProductController(context);
+                var c = new ProductController(_context, _logger, _PIS.Object);
                 c.ControllerContext = new ControllerContext()
                 {
                     HttpContext = new DefaultHttpContext()
@@ -218,7 +221,7 @@ namespace SampleMvcApp.Tests
                             new ClaimsIdentity(
                                 new List<Claim>()
                                 {
-                                    new Claim(ClaimTypes.NameIdentifier, (await context.Users.FirstAsync(x => x.UserName == DbInitializer.UserName)).Id)
+                                    new Claim(ClaimTypes.NameIdentifier, (await _context.Users.FirstAsync(x => x.UserName == DbInitializer.UserName)).Id)
                                 },
                                 "TestAuthentication"
                             )
@@ -241,10 +244,8 @@ namespace SampleMvcApp.Tests
         [Fact]
         public async Task CreatePostTest_Shopのオーナー不一致NotFound()
         {
-            using (var scope = CreateServiceProvider().CreateScope())
-            using (var context = scope.ServiceProvider.GetService<SampleMVCAppContext>())
-            using (var userManager = scope.ServiceProvider.GetService<UserManager<IdentityUser>>())
-            using (var roleManager = scope.ServiceProvider.GetService<RoleManager<IdentityRole>>())
+            using (var userManager = _provider.GetService<UserManager<IdentityUser>>())
+            using (var roleManager = _provider.GetService<RoleManager<IdentityRole>>())
             {
                 #region Arrange
                 var shop = new Models.Shop()
@@ -252,15 +253,15 @@ namespace SampleMvcApp.Tests
                     ShopId = 1, Name = "Shop",
                     Owner = new IdentityUser("不一致"),
                 };
-                await context.Shop.AddAsync(shop);
-                await context.SaveChangesAsync();
+                await _context.Shop.AddAsync(shop);
+                await _context.SaveChangesAsync();
 
                 var product = new Models.Product()
                 {
                     Name = "Test", Price = 0,
                 };
 
-                var c = new ProductController(context);
+                var c = new ProductController(_context, _logger, _PIS.Object);
                 c.ControllerContext = new ControllerContext()
                 {
                     HttpContext = new DefaultHttpContext()
@@ -269,7 +270,7 @@ namespace SampleMvcApp.Tests
                             new ClaimsIdentity(
                                 new List<Claim>()
                                 {
-                                    new Claim(ClaimTypes.NameIdentifier, (await context.Users.FirstAsync(x => x.UserName == DbInitializer.UserName)).Id)
+                                    new Claim(ClaimTypes.NameIdentifier, (await _context.Users.FirstAsync(x => x.UserName == DbInitializer.UserName)).Id)
                                 },
                                 "TestAuthentication"
                             )
@@ -291,26 +292,24 @@ namespace SampleMvcApp.Tests
         [Fact]
         public async Task CreatePostTest_モデル状態不正NotFound()
         {
-            using (var scope = CreateServiceProvider().CreateScope())
-            using (var context = scope.ServiceProvider.GetService<SampleMVCAppContext>())
-            using (var userManager = scope.ServiceProvider.GetService<UserManager<IdentityUser>>())
-            using (var roleManager = scope.ServiceProvider.GetService<RoleManager<IdentityRole>>())
+            using (var userManager = _provider.GetService<UserManager<IdentityUser>>())
+            using (var roleManager = _provider.GetService<RoleManager<IdentityRole>>())
             {
                 #region Arrange
                 var shop = new Models.Shop()
                 {
                     ShopId = 1, Name = "Shop",
-                    Owner = await context.Users.FirstOrDefaultAsync(x => x.UserName == DbInitializer.UserName),
+                    Owner = await _context.Users.FirstOrDefaultAsync(x => x.UserName == DbInitializer.UserName),
                 };
-                await context.Shop.AddAsync(shop);
-                await context.SaveChangesAsync();
+                await _context.Shop.AddAsync(shop);
+                await _context.SaveChangesAsync();
 
                 var product = new Models.Product()
                 {
                     Name = "Test", Price = 0,
                 };
 
-                var c = new ProductController(context);
+                var c = new ProductController(_context, _logger, _PIS.Object);
                 c.ControllerContext = new ControllerContext()
                 {
                     HttpContext = new DefaultHttpContext()
@@ -319,7 +318,7 @@ namespace SampleMvcApp.Tests
                             new ClaimsIdentity(
                                 new List<Claim>()
                                 {
-                                    new Claim(ClaimTypes.NameIdentifier, (await context.Users.FirstAsync(x => x.UserName == DbInitializer.UserName)).Id)
+                                    new Claim(ClaimTypes.NameIdentifier, (await _context.Users.FirstAsync(x => x.UserName == DbInitializer.UserName)).Id)
                                 },
                                 "TestAuthentication"
                             )

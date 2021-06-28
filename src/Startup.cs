@@ -11,6 +11,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity;
 using SampleMvcApp.Data;
+using SampleMvcApp.Services;
 
 namespace SampleMvcApp
 {
@@ -33,17 +34,30 @@ namespace SampleMvcApp
 
             services.AddIdentity<IdentityUser, IdentityRole>()
                     .AddEntityFrameworkStores<SampleMVCAppContext>()
-                    .AddDefaultUI()
+                    // .AddDefaultUI()
                     .AddDefaultTokenProviders();
             
-            services.AddRazorPages(options => options.Conventions.AuthorizePage("/Product"))
-                    .AddRazorRuntimeCompilation();
+            services.ConfigureApplicationCookie(option =>
+            {
+                option.AccessDeniedPath = "/StatusCode/AccessDenied";
+                option.LoginPath = "/User/Login";
+            });
+
+            services.AddRazorPages(options =>
+                {
+                    options.Conventions.AuthorizePage("/Product");
+                })
+                .AddRazorRuntimeCompilation();
+            
+            services
+                .AddScoped<IFileWriter, FileWriter>()
+                .AddScoped<IProductImageService, ProductImageService>();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env, UserManager<IdentityUser> userManager, RoleManager<IdentityRole> roleManager)
         {
-            if (env.IsDevelopment())
+            if (!env.IsProduction())
             {
                 app.UseDeveloperExceptionPage();
             }
@@ -73,7 +87,7 @@ namespace SampleMvcApp
                 endpoints.MapControllerRoute(
                     name: "default",
                     pattern: "{controller=Product}/{action=Index}/{id?}");
-                endpoints.MapRazorPages();
+                // endpoints.MapRazorPages();
             });
 
             DbInitializer.CreateAdministrator(userManager, roleManager).Wait();

@@ -8,7 +8,7 @@ using Microsoft.EntityFrameworkCore;
 using SampleMvcApp.Data;
 using SampleMvcApp.Models;
 
-namespace SampleMvcApp.Controolers
+namespace SampleMvcApp.Controllers
 {
     public class GenreController : Controller
     {

@@ -10,16 +10,29 @@ using SampleMvcApp.Models;
 using SampleMvcApp.ViewModels;
 using System.Security.Claims;
 using SampleMvcApp.Data;
+using Microsoft.AspNetCore.Http;
+using System.IO;
+using Microsoft.Extensions.Logging;
+using SampleMvcApp.Services;
+using System.Reflection;
+using Microsoft.AspNetCore.Hosting;
+using SampleMvcApp.ViewModels.Product;
 
 namespace SampleMvcApp.Controllers
 {
     public class ProductController : Controller
     {
         private readonly SampleMVCAppContext _context;
+        private ILogger<ProductController> _logger;
+        private IProductImageService _PIS;
 
-        public ProductController(SampleMVCAppContext context)
+        public ProductController(
+            SampleMVCAppContext context, ILogger<ProductController> logger,
+            IProductImageService productImageService)
         {
             _context = context;
+            _logger = logger;
+            _PIS = productImageService;
         }
 
         // GET: Product
@@ -37,6 +50,7 @@ namespace SampleMvcApp.Controllers
             }
 
             var product = await _context.Product
+                .Include(x => x.ProductImages)
                 .FirstOrDefaultAsync(m => m.ProductId == id);
             if (product == null)
             {
@@ -103,12 +117,13 @@ namespace SampleMvcApp.Controllers
             var product = await _context.Product
                 .Include(p => p.ProductGenres).ThenInclude(pg => pg.Genre).FirstOrDefaultAsync(p => p.ProductId == id);
             var genres = await _context.Genre.OrderBy(x => x.Name).ToListAsync();
+            var productImages = await _context.ProductImages.Where(x => x.Product.ProductId == product.ProductId).ToListAsync();
             if (product == null || genres == null)
             {
                 return NotFound();
             }
 
-            var vm = new ViewModels.Product.EditViewModel(product, genres, product.ProductGenres.Select(x => x.GenreId));
+            var vm = new ViewModels.Product.EditViewModel(product, genres, product.ProductGenres.Select(x => x.GenreId), productImages);
 
             return View(vm);
         }
@@ -121,56 +136,91 @@ namespace SampleMvcApp.Controllers
         [Authorize(Roles = "Seller")]
         public async Task<IActionResult> Edit(int id,
             [Bind("ProductId,Name,Price,Description,Discount,ProductGenres")] Product product,
-            [Bind("Genres")] IEnumerable<int> genres)
+            [Bind("Genres")] IEnumerable<int> genres,
+            [Bind("Files")] IEnumerable<IFormFile> files)
         {
             if (id != product.ProductId)
             {
                 return NotFound();
             }
 
-            if (ModelState.IsValid)
+            /// ファイル内容チェック
+            foreach (var file in files)
             {
-                var productToUpdate = await _context.Product.Include(p => p.ProductGenres).FirstOrDefaultAsync(p => p.ProductId == id);
-
-                if (await TryUpdateModelAsync(productToUpdate, nameof(Product), x => x.Description, x => x.Discount, x => x.Name, x => x.Price))
+                if (!(file.Length > 0))
                 {
-                    var beforeGenres = productToUpdate.ProductGenres.Select(pg => pg.GenreId);
-                    var afterGenres = genres;
-                    var addGenreIds = afterGenres.Except(beforeGenres);
-                    var removeGenreIds = beforeGenres.Except(afterGenres);
-
-                    foreach (var genreId in addGenreIds)
-                    {
-                        productToUpdate.ProductGenres.Add(new ProductGenre() { ProductId = productToUpdate.ProductId, GenreId = genreId });
-                    }
-
-                    foreach (var genreId in removeGenreIds)
-                    {
-                        var remove = productToUpdate.ProductGenres.FirstOrDefault(pg => pg.GenreId == genreId);
-                        _context.Remove(remove);
-                    }
-
-                    try
-                    {
-                        await _context.SaveChangesAsync();
-                    }
-                    catch (DbUpdateConcurrencyException)
-                    {
-                        if (!ProductExists(product.ProductId))
-                        {
-                            return NotFound();
-                        }
-                        else
-                        {
-                            throw;
-                        }
-                    }
+                    _logger.LogWarning("0 bytes file: {0}", file.FileName);
+                    ModelState.AddModelError("", $"{file.FileName} is 0 bytes file.");
+                    continue;
                 }
-                return RedirectToAction(nameof(Index));
+
+                if (!_PIS.IsJpeg(file) && !_PIS.IsPng(file))
+                {
+                    _logger.LogWarning("Not jpeg or png: {0}", file.FileName);
+                    ModelState.AddModelError("", $"{file.FileName} is not jpeg or png.");
+                    continue;
+                }
             }
 
-            var vm = new ViewModels.Product.EditViewModel(product, await _context.Genre.ToListAsync(), genres);
-            return View(vm);
+            if (!ModelState.IsValid)
+            {
+                return View(new EditViewModel(product, await _context.Genre.OrderBy(x => x.Name).ToListAsync(), genres));
+            }
+
+            var productToUpdate = await _context.Product.Include(p => p.ProductGenres).FirstOrDefaultAsync(p => p.ProductId == id);
+
+            if (!await TryUpdateModelAsync(productToUpdate, nameof(Product), x => x.Description, x => x.Discount, x => x.Name, x => x.Price))
+            {
+                return NotFound();
+            }
+
+            var beforeGenres = productToUpdate.ProductGenres.Select(pg => pg.GenreId);
+            var afterGenres = genres;
+            var addGenreIds = afterGenres.Except(beforeGenres);
+            var removeGenreIds = beforeGenres.Except(afterGenres);
+
+            foreach (var genreId in addGenreIds)
+            {
+                productToUpdate.ProductGenres.Add(
+                    new ProductGenre() { ProductId = productToUpdate.ProductId, GenreId = genreId });
+            }
+
+            foreach (var genreId in removeGenreIds)
+            {
+                var removeGenre = productToUpdate.ProductGenres.First(pg => pg.GenreId == genreId);
+                _context.Remove(removeGenre);
+            }
+
+            foreach (var file in files)
+            {
+                var filename = _PIS.GetGuidFileName(Path.GetExtension(file.FileName));
+                var accessPath = await _PIS.SaveUploadFile(file, filename);
+
+                var productImage = new ProductImage()
+                {
+                    Uri = accessPath,
+                    Timestamp = DateTime.Now,
+                    Product = productToUpdate,
+                };
+                await _context.ProductImages.AddAsync(productImage);
+            }
+
+            try
+            {
+                await _context.SaveChangesAsync();
+                return RedirectToAction(nameof(Index));
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                if (!ProductExists(product.ProductId))
+                {
+                    return NotFound();
+                }
+                else
+                {
+                    throw;
+                }
+            }
         }
 
         // GET: Product/Delete/5

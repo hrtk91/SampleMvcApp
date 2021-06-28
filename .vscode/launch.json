@@ -15,7 +15,8 @@
                 "pattern": "\\bNow listening on:\\s+(https?://\\S+)"
             },
             "env": {
-                "ASPNETCORE_ENVIRONMENT": "Local"
+                "ASPNETCORE_ENVIRONMENT": "Local",
+                "PRODUCTIMAGE_DIRECTORYNAME": "UserUpload/ProductImage",
             },
             "sourceFileMap": {
                 "/Views": "${workspaceFolder}/src/Views"

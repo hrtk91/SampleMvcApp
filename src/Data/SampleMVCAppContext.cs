@@ -22,6 +22,8 @@ namespace SampleMvcApp.Data
 
         public DbSet<SampleMvcApp.Models.Receipt> Receipt { get; set; }
 
+        public DbSet<SampleMvcApp.Models.ProductImage> ProductImages { get; set; }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
