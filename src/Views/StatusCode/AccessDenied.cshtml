@@ -1,0 +1,11 @@
+@model string
+@{
+    ViewData["Title"] = "403 Forbidden";
+}
+
+<h1>Access Denied</h1>
+
+@if (!string.IsNullOrEmpty(Model))
+{
+    <p>RequestUrl:@Model</p>
+}
