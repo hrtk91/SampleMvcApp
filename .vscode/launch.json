@@ -16,7 +16,7 @@
             },
             "env": {
                 "ASPNETCORE_ENVIRONMENT": "Local",
-                "PRODUCTIMAGE_DIRECTORYNAME": "UserUpload/ProductImage",
+                "PRODUCTIMAGE_DIRECTORYNAME": "userupload/productimage",
             },
             "sourceFileMap": {
                 "/Views": "${workspaceFolder}/src/Views"

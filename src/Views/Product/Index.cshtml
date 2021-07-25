@@ -2,15 +2,18 @@
 @model IEnumerable<SampleMvcApp.Models.Product>
 
 @{
-    ViewData["Title"] = "Index";
-    var userId = User.FindFirst(x => x.Type == ClaimTypes.NameIdentifier)?.Value ?? "";
+    ViewData["Title"] = "商品一覧";
+    var userId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "";
 }
 
-<h1>Index</h1>
+<h1>商品一覧</h1>
 
 <table class="table">
     <thead>
         <tr>
+            <th>
+                @Html.DisplayNameFor(model => model.ProductImages)
+            </th>
             <th>
                 @Html.DisplayNameFor(model => model.Name)
             </th>
@@ -26,6 +29,9 @@
     <tbody>
 @foreach (var item in Model) {
         <tr>
+            <td>
+                <img src='@Url.Content(item.ProductImages.FirstOrDefault()?.Uri ?? "~/no_image.jpg")' style="height: 5rem; width: auto; max-width: 10rem;"/>
+            </td>
             <td>
                 <a asp-action="Details" asp-route-id="@item.ProductId">@item.Name</a>
             </td>

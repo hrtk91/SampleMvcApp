@@ -1,12 +1,14 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using System.Security.Claims;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using SampleMvcApp.ViewModels.User;
 
 namespace SampleMvcApp.Controllers
@@ -16,12 +18,14 @@ namespace SampleMvcApp.Controllers
         private UserManager<IdentityUser> _userManager;
         private RoleManager<IdentityRole> _roleManager;
         private SignInManager<IdentityUser> _signInManager;
+        private ILogger<UserController> _logger;
 
-        public UserController(UserManager<IdentityUser> userManager, RoleManager<IdentityRole> roleManager, SignInManager<IdentityUser> signinManager)
+        public UserController(UserManager<IdentityUser> userManager, RoleManager<IdentityRole> roleManager, SignInManager<IdentityUser> signinManager, ILogger<UserController> logger)
         {
             _userManager = userManager;
             _roleManager = roleManager;
             _signInManager = signinManager;
+            _logger = logger;
         }
 
         [Authorize(Roles = "Admin")]
@@ -38,28 +42,59 @@ namespace SampleMvcApp.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create(string UserName, string Email, string Password)
+        public async Task<IActionResult> Create(string UserName, string Email, string Password, string roleType)
         {
-            if (string.IsNullOrEmpty(UserName)) return NotFound();
+            if (string.IsNullOrEmpty(UserName) || string.IsNullOrEmpty(roleType) ||
+                (roleType != "User" && roleType != "Seller"))
+            {
+                return NotFound();
+            }
 
             var user = new IdentityUser(UserName)
             {
                 Email = Email
             };
 
-            var createResult = await _userManager.CreateAsync(user, Password);
-            if (createResult.Succeeded && TryValidateModel(user))
+            if (!TryValidateModel(user))
             {
-                return RedirectToAction(nameof(Index), "Product");
+                return View(user);
             }
 
-            foreach (var error in createResult.Errors)
+            var createResult = await _userManager.CreateAsync(user, Password);
+            if (!createResult.Succeeded)
             {
-                ModelState.AddModelError(error.Code, error.Description);
+                foreach (var error in createResult.Errors)
+                {
+                    ModelState.AddModelError(error.Code, error.Description);
+                }
+                return View(user);
             }
-            return View();
+
+            var createUser = await _userManager.FindByNameAsync(user.UserName);
+            if (createUser == null) return NotFound();
+
+            var addRoleResult = await _userManager.AddToRoleAsync(createUser, roleType);
+            if (!addRoleResult.Succeeded)
+            {
+                foreach (var error in addRoleResult.Errors)
+                {
+                    ModelState.AddModelError(error.Code, error.Description);
+                }
+                _logger.LogError("Permission Failure.:{0} Role:{1}", createUser.UserName, roleType);
+
+                var deleteResult = await _userManager.DeleteAsync(createUser);
+                if (!deleteResult.Succeeded)
+                {
+                    _logger.LogCritical("Failed to cancel user create. UserName:{0}, UserID{1}", createUser.UserName, createUser.Id);
+                }
+                return new StatusCodeResult((int)HttpStatusCode.InternalServerError);
+            }
+            
+            await _signInManager.SignInAsync(createUser, false);
+            return RedirectToAction(nameof(Index), "Product");
         }
 
+        [Authorize]
         public async Task<IActionResult> Edit(string id)
         {
             var user = await _userManager.Users.FirstOrDefaultAsync(u => u.Id == id);
@@ -78,14 +113,22 @@ namespace SampleMvcApp.Controllers
 
         [HttpPost]
         [AutoValidateAntiforgeryToken]
+        [Authorize]
         public async Task<IActionResult> Edit([Bind("Id, Email")] IdentityUser user, IEnumerable<string> roles)
         {
             var requester = await _userManager.FindByIdAsync(User.FindFirstValue(ClaimTypes.NameIdentifier));
             var updateUser = await _userManager.FindByIdAsync(user.Id);
 
+            if (requester == null || updateUser == null)
+            {
+                return NotFound();
+            }
+
+            var IsMyselfUpdate = requester.Id == updateUser.Id;
+
             if (!(await _userManager.IsInRoleAsync(requester, "Admin")))
             {
-                if (updateUser == null || requester.Id != updateUser.Id)
+                if (!IsMyselfUpdate)
                 {
                     return NotFound();
                 }
@@ -96,7 +139,12 @@ namespace SampleMvcApp.Controllers
             var resultUpdateRole = await _userManager.AddToRolesAsync(updateUser, roles);
             if (resultUpdateRole.Succeeded && resultRemoveRole.Succeeded && resultUpdateUser)
             {
-                return RedirectToAction(nameof(Index));
+                if (IsMyselfUpdate)
+                {
+                    await _signInManager.RefreshSignInAsync(requester);
+                }
+
+                return RedirectToAction(nameof(Index), ControllerHelper.NameOf<ProductController>());
             }
             else
             {

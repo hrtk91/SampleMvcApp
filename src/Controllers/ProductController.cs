@@ -38,7 +38,12 @@ namespace SampleMvcApp.Controllers
         // GET: Product
         public async Task<IActionResult> Index()
         {
-            return View(await _context.Product.Include(x => x.Shop).ThenInclude(x => x.Owner).ToListAsync());
+            return View(
+                await _context.Product
+                    .Include(x => x.ProductImages)
+                    .Include(x => x.Shop)
+                    .ThenInclude(x => x.Owner)
+                    .ToListAsync());
         }
 
         // GET: Product/Details/5
@@ -74,7 +79,7 @@ namespace SampleMvcApp.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Seller")]
-        public async Task<IActionResult> Create([Bind("ProductId,Name,Price")] Product product, int shopId)
+        public async Task<IActionResult> Create([Bind("ProductId,Name,Description,Price")] Product product, int shopId)
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             if (string.IsNullOrEmpty(userId))
