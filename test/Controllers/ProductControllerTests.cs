@@ -343,6 +343,8 @@ namespace SampleMvcApp.Tests
 
         private ServiceProvider CreateServiceProvider()
         {
+            // おそらく参考文献：https://devadjust.exblog.jp/27677443/
+            // （あとから探したのでどうやってこのコードにたどり着いたのか不明）
             var services = new ServiceCollection();
             services.AddDbContext<SampleMVCAppContext>(o => o.UseInMemoryDatabase("InMemoryDb"), ServiceLifetime.Scoped);
             services.AddIdentity<IdentityUser, IdentityRole>().AddEntityFrameworkStores<SampleMVCAppContext>();
