@@ -344,7 +344,9 @@ namespace SampleMvcApp.Tests
         private ServiceProvider CreateServiceProvider()
         {
             // おそらく参考文献：https://devadjust.exblog.jp/27677443/
-            // （あとから探したのでどうやってこのコードにたどり着いたのか不明）
+            // 　（あとから探したのでどうやってこのコードにたどり着いたのか不明）
+            // 参考文献その2:https://qiita.com/okazuki/items/239ca5ef46e5a085e085
+            // 　その2はAddTransient,AddSingleton,AddScopedの違いが書いてあるのでありがたい
             var services = new ServiceCollection();
             services.AddDbContext<SampleMVCAppContext>(o => o.UseInMemoryDatabase("InMemoryDb"), ServiceLifetime.Scoped);
             services.AddIdentity<IdentityUser, IdentityRole>().AddEntityFrameworkStores<SampleMVCAppContext>();
