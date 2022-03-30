@@ -85,7 +85,7 @@ namespace SampleMvcApp.Tests
                 var viewresult = Assert.IsType<ViewResult>(result);
                 var products = Assert.IsType<List<Models.Product>>(viewresult.Model);
 
-                var product = products.First();
+                var product = products.Single();
                 Assert.Equal(addProduct.Name, product.Name);
                 Assert.Equal(addProduct.Shop.Name, product.Shop.Name);
                 Assert.Equal(addProduct.Shop.Owner.UserName, product.Shop.Owner.UserName);
