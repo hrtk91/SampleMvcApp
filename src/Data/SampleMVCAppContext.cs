@@ -28,10 +28,6 @@ namespace SampleMvcApp.Data
         {
             base.OnModelCreating(modelBuilder);
             
-            modelBuilder
-                .Entity<ProductGenre>()
-                .HasKey(c => new { c.ProductId, c.GenreId });
-            
             CreateAdminRole(modelBuilder);
         }
 

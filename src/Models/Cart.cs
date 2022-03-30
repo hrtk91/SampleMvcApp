@@ -12,7 +12,7 @@ namespace SampleMvcApp.Models
         
         public IdentityUser Owner { get; set; }
 
-        public IList<Models.Product> Products { get; set; }
+        public IList<Product> Products { get; set; }
 
         public int TotalPrice()
         {

@@ -20,7 +20,10 @@ namespace SampleMvcApp.Models
         public int Discount { get; set; }
 
         public Shop Shop { get; set; }
-        public IList<ProductGenre> ProductGenres { get; set; } = new List<ProductGenre>();
+
+        public IList<Cart> Carts { get; set; } = new List<Cart>();
+
+        public IList<Genre> Genres { get; set; } = new List<Genre>();
 
         public IList<ProductImage> ProductImages { get; set; } = new List<ProductImage>();
     }

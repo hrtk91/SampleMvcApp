@@ -10,6 +10,6 @@ namespace SampleMvcApp.Models
         [Required]
         public string Name { get; set; }
 
-        public IList<ProductGenre> ProductGenres { get; set; } = new List<ProductGenre>();
+        public IList<Product> Products { get; set; } = new List<Product>();
     }
 }

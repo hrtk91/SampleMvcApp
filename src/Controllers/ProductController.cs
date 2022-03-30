@@ -120,15 +120,22 @@ namespace SampleMvcApp.Controllers
             }
 
             var product = await _context.Product
-                .Include(p => p.ProductGenres).ThenInclude(pg => pg.Genre).FirstOrDefaultAsync(p => p.ProductId == id);
+                .Include(p => p.Genres)
+                .FirstOrDefaultAsync(p => p.ProductId == id);
             var genres = await _context.Genre.OrderBy(x => x.Name).ToListAsync();
-            var productImages = await _context.ProductImages.Where(x => x.Product.ProductId == product.ProductId).ToListAsync();
+            var productImages = await _context.ProductImages
+                .Where(x => x.Product.ProductId == product.ProductId)
+                .ToListAsync();
             if (product == null || genres == null)
             {
                 return NotFound();
             }
 
-            var vm = new ViewModels.Product.EditViewModel(product, genres, product.ProductGenres.Select(x => x.GenreId), productImages);
+            var vm = new ViewModels.Product.EditViewModel(
+                product,
+                genres,
+                product.Genres.Select(x => x.GenreId),
+                productImages);
 
             return View(vm);
         }
@@ -140,7 +147,7 @@ namespace SampleMvcApp.Controllers
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Seller")]
         public async Task<IActionResult> Edit(int id,
-            [Bind("ProductId,Name,Price,Description,Discount,ProductGenres")] Product product,
+            [Bind("ProductId,Name,Price,Description,Discount")] Product product,
             [Bind("Genres")] IEnumerable<int> genres,
             [Bind("Files")] IEnumerable<IFormFile> files)
         {
@@ -172,28 +179,30 @@ namespace SampleMvcApp.Controllers
                 return View(new EditViewModel(product, await _context.Genre.OrderBy(x => x.Name).ToListAsync(), genres));
             }
 
-            var productToUpdate = await _context.Product.Include(p => p.ProductGenres).FirstOrDefaultAsync(p => p.ProductId == id);
+            var productToUpdate = await _context.Product
+                .Include(p => p.Genres)
+                .FirstOrDefaultAsync(p => p.ProductId == id);
 
             if (!await TryUpdateModelAsync(productToUpdate, nameof(Product), x => x.Description, x => x.Discount, x => x.Name, x => x.Price))
             {
                 return NotFound();
             }
 
-            var beforeGenres = productToUpdate.ProductGenres.Select(pg => pg.GenreId);
-            var afterGenres = genres;
-            var addGenreIds = afterGenres.Except(beforeGenres);
-            var removeGenreIds = beforeGenres.Except(afterGenres);
+            var beforeGenreIds = productToUpdate.Genres.Select(g => g.GenreId).ToList();
+            var afterGenreIds = genres;
+            var addGenreIds = afterGenreIds.Except(beforeGenreIds).ToList();
+            var removeGenreIds = beforeGenreIds.Except(afterGenreIds).ToList();
 
-            foreach (var genreId in addGenreIds)
+            var addGenres = await _context.Genre.Where(x => addGenreIds.Contains(x.GenreId)).ToListAsync();
+            foreach (var genre in addGenres)
             {
-                productToUpdate.ProductGenres.Add(
-                    new ProductGenre() { ProductId = productToUpdate.ProductId, GenreId = genreId });
+                productToUpdate.Genres.Add(genre);
             }
 
             foreach (var genreId in removeGenreIds)
             {
-                var removeGenre = productToUpdate.ProductGenres.First(pg => pg.GenreId == genreId);
-                _context.Remove(removeGenre);
+                var removeGenre = productToUpdate.Genres.Single(g => g.GenreId == genreId);
+                productToUpdate.Genres.Remove(removeGenre);
             }
 
             foreach (var file in files)
