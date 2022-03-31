@@ -35,8 +35,10 @@ namespace SampleMvcApp.Controllers
                 return NotFound();
             }
 
-            var shop = await _context.Shop.Include(x => x.Products)
-                .FirstOrDefaultAsync(m => m.ShopId == id);
+            var shop = await _context.Shop
+                .Include(x => x.Products)
+                .Include(x => x.Owner)
+                .SingleOrDefaultAsync(m => m.ShopId == id);
             if (shop == null)
             {
                 return NotFound();
