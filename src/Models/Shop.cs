@@ -16,5 +16,10 @@ namespace SampleMvcApp.Models
         public IdentityUser Owner { get; set; }
         public IList<Product> Products { get; set; }
         public IList<Receipt> SalesHistories { get; set; }
+
+        public bool IsOwner(string id)
+        {
+            return this.Owner.Id == id;
+        }
     }
 }

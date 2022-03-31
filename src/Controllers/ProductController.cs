@@ -41,8 +41,9 @@ namespace SampleMvcApp.Controllers
             return View(
                 await _context.Product
                     .Include(x => x.ProductImages)
+                    .Include(x => x.Genres)
                     .Include(x => x.Shop)
-                    .ThenInclude(x => x.Owner)
+                        .ThenInclude(x => x.Owner)
                     .ToListAsync());
         }
 

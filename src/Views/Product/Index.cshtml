@@ -23,11 +23,17 @@
             <th>
                 @Html.DisplayNameFor(model => model.Shop)
             </th>
-            <th></th>
+            <th>
+                @Html.DisplayNameFor(model => model.Genres)
+            </th>
+            <th>
+                @* 空行 *@
+            </th>
         </tr>
     </thead>
     <tbody>
-@foreach (var item in Model) {
+@foreach (var item in Model)
+{
         <tr>
             <td>
                 <img src='@Url.Content(item.ProductImages.FirstOrDefault()?.Uri ?? "~/no_image.jpg")' style="height: 5rem; width: auto; max-width: 10rem;"/>
@@ -42,19 +48,25 @@
                 @Html.DisplayFor(modelItem => item.Shop.Name)
             </td>
             <td>
-@if (item.Shop.Owner.Id != userId)
-{
+            @foreach (var genre in item.Genres)
+            {
+                <span class="badge badge-primary">@genre.Name</span>
+            }
+            </td>
+            <td>
+            @if (!item.Shop.IsOwner(userId))
+            {
                 <form style="display: inline;" asp-controller="Cart" asp-action="Add" method="post">
                     <input type="hidden" name="ProductId" value="@item.ProductId" />
                     <input type="hidden" name="UserId" value="@User.FindFirstValue(ClaimTypes.NameIdentifier)" />
                     <input class="btn btn-primary btn-sm" type="submit" value="Add To Cart" />
                 </form>
-}
-@if (item.Shop.Owner.Id == userId || User.IsInRole("Admin"))
-{
+            }
+            @if (item.Shop.IsOwner(userId) || User.IsInRole("Admin"))
+            {
                 <a asp-action="Edit" asp-route-id="@item.ProductId">Edit</a> @Html.Raw("|");
                 <a asp-action="Delete" asp-route-id="@item.ProductId">Delete</a>
-}
+            }
             </td>
         </tr>
 }
