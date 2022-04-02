@@ -12,6 +12,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity;
 using SampleMvcApp.Data;
 using SampleMvcApp.Services;
+using SampleMvcApp.Services.Interface;
 
 namespace SampleMvcApp
 {
@@ -51,7 +52,8 @@ namespace SampleMvcApp
             
             services
                 .AddScoped<IFileWriter, FileWriter>()
-                .AddScoped<IProductImageService, ProductImageService>();
+                .AddScoped<IProductImageService, ProductImageService>()
+                .AddScoped<IProductService, ProductService>();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.

@@ -6,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Moq;
 using SampleMvcApp.Services;
+using SampleMvcApp.Services.Interface;
 using Xunit;
 
 namespace SampleMvcApp.Tests.Services

@@ -1,8 +1,7 @@
-using System.Collections.Generic;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 
-namespace SampleMvcApp.Services
+namespace SampleMvcApp.Services.Interface
 {
     public interface IProductImageService
     {

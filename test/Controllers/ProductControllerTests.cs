@@ -9,15 +9,13 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using Microsoft.Extensions.DependencyInjection;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
 using Xunit.Abstractions;
-using SampleMvcApp.Services;
 using Microsoft.AspNetCore.Hosting;
+using SampleMvcApp.Services.Interface;
 
 namespace SampleMvcApp.Tests
 {
@@ -25,10 +23,11 @@ namespace SampleMvcApp.Tests
     {
         private readonly ITestOutputHelper _stdout;
         private Mock<IWebHostEnvironment> _env;
-        private Mock<IProductImageService> _PIS { get; }
+
+        public Mock<IProductService> PS { get; }
 
         private ServiceProvider _provider;
-        private ILogger<ProductController> _logger;
+        private ILogger<ProductController> logger;
         private SampleMVCAppContext _context;
 
         public ProductControllerTests(ITestOutputHelper testOutputHelper)
@@ -36,9 +35,10 @@ namespace SampleMvcApp.Tests
             _stdout = testOutputHelper;
 
             _env = new Mock<IWebHostEnvironment>();
-            _PIS = new Mock<IProductImageService>();
+            PS = new Mock<IProductService>();
+            // _PIS = new Mock<IProductImageService>();
             _provider = CreateServiceProvider();
-            _logger = _provider.GetService<ILoggerFactory>().CreateLogger<ProductController>();
+            logger = _provider.GetService<ILoggerFactory>().CreateLogger<ProductController>();
             _context = _provider.GetService<SampleMVCAppContext>();
 
             using (var userManager = _provider.GetService<UserManager<IdentityUser>>())
@@ -62,19 +62,21 @@ namespace SampleMvcApp.Tests
             using (var roleManager = _provider.GetService<RoleManager<IdentityRole>>())
             {
                 #region Arrange
-                var addProduct = new Models.Product()
+                var moqProducts = new List<Models.Product>
                 {
-                    Name = "Test", Price = 0,
-                    Shop = new Models.Shop()
+                    new Models.Product
                     {
-                        Name = "Shop",
-                        Owner = await _context.Users.FirstOrDefaultAsync(x => x.UserName == "admin@mail.com"),
-                    }
+                        Name = "Test", Price = 0,
+                        Shop = new Models.Shop()
+                        {
+                            Name = "Shop",
+                            Owner = await _context.Users.FirstOrDefaultAsync(x => x.UserName == "admin@mail.com"),
+                        }
+                    },
                 };
-                await _context.Product.AddAsync(addProduct);
-                await _context.SaveChangesAsync();
+                PS.Setup(x => x.Index()).ReturnsAsync(moqProducts);
 
-                var c = new ProductController(_context, _logger, _PIS.Object);
+                var c = new ProductController(logger, PS.Object);
                 #endregion
 
                 #region Action
@@ -83,12 +85,9 @@ namespace SampleMvcApp.Tests
 
                 #region Assert
                 var viewresult = Assert.IsType<ViewResult>(result);
-                var products = Assert.IsType<List<Models.Product>>(viewresult.Model);
+                var resultProducts = Assert.IsType<List<Models.Product>>(viewresult.Model);
 
-                var product = products.Single();
-                Assert.Equal(addProduct.Name, product.Name);
-                Assert.Equal(addProduct.Shop.Name, product.Shop.Name);
-                Assert.Equal(addProduct.Shop.Owner.UserName, product.Shop.Owner.UserName);
+                Assert.Equal(moqProducts, resultProducts);
                 #endregion
             }
         }
@@ -113,7 +112,60 @@ namespace SampleMvcApp.Tests
                     Name = "Test", Price = 0,
                 };
 
-                var c = new ProductController(_context, _logger, _PIS.Object);
+                var c = new ProductController(logger, PS.Object);
+                c.ControllerContext = new ControllerContext()
+                {
+                    HttpContext = new DefaultHttpContext()
+                    {
+                        User = new ClaimsPrincipal(
+                            new ClaimsIdentity(
+                                new List<Claim>()
+                                {
+                                    new Claim(ClaimTypes.NameIdentifier, (await _context.Users.FirstAsync(x => x.UserName == DbInitializer.UserName)).Id)
+                                },
+                                "TestAuthentication"
+                            )
+                        )
+                    }
+                };
+
+                PS.Setup(x => x.PostCreate(It.IsAny<Models.Product>(), It.IsAny<int>(), It.IsAny<string>()))
+                    .ReturnsAsync(product);
+                #endregion
+
+                #region Action
+                var result = await c.Create(product, shop.ShopId);
+                #endregion
+                
+                #region Assert
+                var viewresult = Assert.IsType<RedirectToActionResult>(result);
+                Assert.Equal(nameof(ProductController.Index), viewresult.ActionName);
+                #endregion
+            }
+        }
+
+        [Fact]
+        public async Task CreatePostTest_ArgumentException()
+        {
+            using (var userManager = _provider.GetService<UserManager<IdentityUser>>())
+            using (var roleManager = _provider.GetService<RoleManager<IdentityRole>>())
+            {
+                #region Arrange
+                PS.Setup(x => x.PostCreate(It.IsAny<Models.Product>(), It.IsAny<int>(), It.IsAny<string>()))
+                    .ThrowsAsync(new ArgumentException("Test Error", nameof(Models.Product.ProductId)));
+
+                var shop = new Models.Shop
+                {
+                    ShopId = 1, Name = "Shop",
+                    Owner = await _context.Users.FirstOrDefaultAsync(x => x.UserName == DbInitializer.UserName),
+                };
+
+                var product = new Models.Product
+                {
+                    Name = "Test", Price = 0,
+                };
+
+                var c = new ProductController(logger, PS.Object);
                 c.ControllerContext = new ControllerContext()
                 {
                     HttpContext = new DefaultHttpContext()
@@ -136,13 +188,17 @@ namespace SampleMvcApp.Tests
                 #endregion
                 
                 #region Assert
-                var viewresult = Assert.IsType<RedirectToActionResult>(result);
-                Assert.Equal(nameof(ProductController.Index), viewresult.ActionName);
+                var viewresult = Assert.IsType<ViewResult>(result);
+                Assert.Equal(product, viewresult.Model);
+                // ProdutIdのエラーがModelStateに登録されていることを確認
+                viewresult.ViewData.ModelState.TryGetValue(nameof(Models.Product.ProductId), out var value);
+                var errMsg = Assert.IsType<string>(value.Errors.Single().ErrorMessage);
+                Assert.Equal("Test Error (Parameter 'ProductId')", errMsg);
                 #endregion
             }
         }
 
-        [Fact]
+        [Fact(Skip = "サービスに移動予定")]
         public async Task CreatePostTest_User不一致NotFound()
         {
             using (var userManager = _provider.GetService<UserManager<IdentityUser>>())
@@ -162,7 +218,7 @@ namespace SampleMvcApp.Tests
                     Name = "Test", Price = 0,
                 };
 
-                var c = new ProductController(_context, _logger, _PIS.Object);
+                var c = new ProductController(logger, PS.Object);
                 c.ControllerContext = new ControllerContext()
                 {
                     HttpContext = new DefaultHttpContext()
@@ -191,7 +247,7 @@ namespace SampleMvcApp.Tests
             }
         }
 
-        [Fact]
+        [Fact(Skip = "サービスに移動予定")]
         public async Task CreatePostTest_ShopなしNotFound()
         {
             using (var userManager = _provider.GetService<UserManager<IdentityUser>>())
@@ -212,7 +268,7 @@ namespace SampleMvcApp.Tests
                     Name = "Test", Price = 0,
                 };
 
-                var c = new ProductController(_context, _logger, _PIS.Object);
+                var c = new ProductController(logger, PS.Object);
                 c.ControllerContext = new ControllerContext()
                 {
                     HttpContext = new DefaultHttpContext()
@@ -241,7 +297,7 @@ namespace SampleMvcApp.Tests
             }
         }
 
-        [Fact]
+        [Fact(Skip = "サービスに移動予定")]
         public async Task CreatePostTest_Shopのオーナー不一致NotFound()
         {
             using (var userManager = _provider.GetService<UserManager<IdentityUser>>())
@@ -261,7 +317,7 @@ namespace SampleMvcApp.Tests
                     Name = "Test", Price = 0,
                 };
 
-                var c = new ProductController(_context, _logger, _PIS.Object);
+                var c = new ProductController(logger, PS.Object);
                 c.ControllerContext = new ControllerContext()
                 {
                     HttpContext = new DefaultHttpContext()
@@ -289,7 +345,7 @@ namespace SampleMvcApp.Tests
             }
         }
 
-        [Fact]
+        [Fact(Skip = "サービスに移動予定")]
         public async Task CreatePostTest_モデル状態不正NotFound()
         {
             using (var userManager = _provider.GetService<UserManager<IdentityUser>>())
@@ -309,7 +365,7 @@ namespace SampleMvcApp.Tests
                     Name = "Test", Price = 0,
                 };
 
-                var c = new ProductController(_context, _logger, _PIS.Object);
+                var c = new ProductController(logger, PS.Object);
                 c.ControllerContext = new ControllerContext()
                 {
                     HttpContext = new DefaultHttpContext()

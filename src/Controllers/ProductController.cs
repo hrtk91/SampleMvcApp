@@ -1,69 +1,33 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Rendering;
-using Microsoft.EntityFrameworkCore;
 using SampleMvcApp.Models;
-using SampleMvcApp.ViewModels;
 using System.Security.Claims;
-using SampleMvcApp.Data;
 using Microsoft.AspNetCore.Http;
-using System.IO;
 using Microsoft.Extensions.Logging;
-using SampleMvcApp.Services;
-using System.Reflection;
-using Microsoft.AspNetCore.Hosting;
 using SampleMvcApp.ViewModels.Product;
+using SampleMvcApp.Services.Interface;
 
 namespace SampleMvcApp.Controllers
 {
     public class ProductController : Controller
     {
-        private readonly SampleMVCAppContext _context;
-        private ILogger<ProductController> _logger;
-        private IProductImageService _PIS;
+        private ILogger<ProductController> logger;
 
-        public ProductController(
-            SampleMVCAppContext context, ILogger<ProductController> logger,
-            IProductImageService productImageService)
+        private readonly IProductService productService;
+
+        public ProductController(ILogger<ProductController> logger, IProductService productService)
         {
-            _context = context;
-            _logger = logger;
-            _PIS = productImageService;
+            this.logger = logger;
+            this.productService = productService;
         }
 
         // GET: Product
         public async Task<IActionResult> Index()
         {
-            return View(
-                await _context.Product
-                    .Include(x => x.ProductImages)
-                    .Include(x => x.Genres)
-                    .Include(x => x.Shop)
-                        .ThenInclude(x => x.Owner)
-                    .ToListAsync());
-        }
-
-        // GET: Product/Details/5
-        public async Task<IActionResult> Details(int? id)
-        {
-            if (id == null)
-            {
-                return NotFound();
-            }
-
-            var product = await _context.Product
-                .Include(x => x.ProductImages)
-                .FirstOrDefaultAsync(m => m.ProductId == id);
-            if (product == null)
-            {
-                return NotFound();
-            }
-
-            return View(product);
+            return View(await productService.Index());
         }
 
         // GET: Product/Create
@@ -82,63 +46,50 @@ namespace SampleMvcApp.Controllers
         [Authorize(Roles = "Seller")]
         public async Task<IActionResult> Create([Bind("ProductId,Name,Description,Price")] Product product, int shopId)
         {
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            if (string.IsNullOrEmpty(userId))
+            try
             {
-                return NotFound();
+                await productService.PostCreate(product, shopId, User.FindFirstValue(ClaimTypes.NameIdentifier));
+            }
+            catch (ArgumentException ex)
+            {
+                logger.LogTrace(ex, "ショップorユーザーの入力エラー");
+                ModelState.AddModelError(ex.ParamName, ex.Message);
             }
 
-            var shop = await _context.Shop
-                .Include(x => x.Owner)
-                .Include(x => x.Products)
-                .FirstOrDefaultAsync(x => x.ShopId == shopId);
-            if (shop == null)
+            if (!ModelState.IsValid) return View(product);
+
+            return RedirectToAction(nameof(Index));
+        }
+
+        // GET: Product/Details/5
+        public async Task<IActionResult> Details(int id)
+        {
+            try
             {
+                return View(await productService.Detail(id));
+            }
+            catch (ArgumentNullException ex)
+            {
+                // idの商品が見つからない場合はNofFound
+                logger.LogTrace(ex, "該当商品の取得に失敗しました");
                 return NotFound();
             }
-
-            if (shop.Owner.Id != userId)
-            {
-                return NotFound();
-            }
-
-            if (ModelState.IsValid)
-            {
-                shop.Products.Add(product);
-                await _context.SaveChangesAsync();
-                return RedirectToAction(nameof(Index));
-            }
-            return View(product);
         }
 
         // GET: Product/Edit/5
         [Authorize(Roles = "Seller")]
-        public async Task<IActionResult> Edit(int? id)
+        public async Task<IActionResult> Edit(int id)
         {
-            if (id == null)
+            try
             {
+                return View(await productService.Edit(id));
+            }
+            catch (ArgumentException ex)
+            {
+                // idの商品が見つからない場合はNofFound
+                logger.LogTrace(ex, "該当商品の取得に失敗しました");
                 return NotFound();
             }
-
-            var product = await _context.Product
-                .Include(p => p.Genres)
-                .FirstOrDefaultAsync(p => p.ProductId == id);
-            var genres = await _context.Genre.OrderBy(x => x.Name).ToListAsync();
-            var productImages = await _context.ProductImages
-                .Where(x => x.Product.ProductId == product.ProductId)
-                .ToListAsync();
-            if (product == null || genres == null)
-            {
-                return NotFound();
-            }
-
-            var vm = new ViewModels.Product.EditViewModel(
-                product,
-                genres,
-                product.Genres.Select(x => x.GenreId),
-                productImages);
-
-            return View(vm);
         }
 
         // POST: Product/Edit/5
@@ -152,109 +103,47 @@ namespace SampleMvcApp.Controllers
             [Bind("Genres")] IEnumerable<int> genres,
             [Bind("Files")] IEnumerable<IFormFile> files)
         {
-            if (id != product.ProductId)
-            {
-                return NotFound();
-            }
-
             /// ファイル内容チェック
-            foreach (var file in files)
+            var validationResults = productService.ValidateProductImageFiles(files);
+            foreach (var result in validationResults)
             {
-                if (!(file.Length > 0))
-                {
-                    _logger.LogWarning("0 bytes file: {0}", file.FileName);
-                    ModelState.AddModelError("", $"{file.FileName} is 0 bytes file.");
-                    continue;
-                }
-
-                if (!_PIS.IsJpeg(file) && !_PIS.IsPng(file))
-                {
-                    _logger.LogWarning("Not jpeg or png: {0}", file.FileName);
-                    ModelState.AddModelError("", $"{file.FileName} is not jpeg or png.");
-                    continue;
-                }
+                ModelState.AddModelError(string.Empty, $"{result.FileName} : {result.Message}");
             }
 
             if (!ModelState.IsValid)
             {
-                return View(new EditViewModel(product, await _context.Genre.OrderBy(x => x.Name).ToListAsync(), genres));
-            }
-
-            var productToUpdate = await _context.Product
-                .Include(p => p.Genres)
-                .FirstOrDefaultAsync(p => p.ProductId == id);
-
-            if (!await TryUpdateModelAsync(productToUpdate, nameof(Product), x => x.Description, x => x.Discount, x => x.Name, x => x.Price))
-            {
-                return NotFound();
-            }
-
-            var beforeGenreIds = productToUpdate.Genres.Select(g => g.GenreId).ToList();
-            var afterGenreIds = genres;
-            var addGenreIds = afterGenreIds.Except(beforeGenreIds).ToList();
-            var removeGenreIds = beforeGenreIds.Except(afterGenreIds).ToList();
-
-            var addGenres = await _context.Genre.Where(x => addGenreIds.Contains(x.GenreId)).ToListAsync();
-            foreach (var genre in addGenres)
-            {
-                productToUpdate.Genres.Add(genre);
-            }
-
-            foreach (var genreId in removeGenreIds)
-            {
-                var removeGenre = productToUpdate.Genres.Single(g => g.GenreId == genreId);
-                productToUpdate.Genres.Remove(removeGenre);
-            }
-
-            foreach (var file in files)
-            {
-                var filename = _PIS.GetGuidFileName(Path.GetExtension(file.FileName));
-                var accessPath = await _PIS.SaveUploadFile(file, filename);
-
-                var productImage = new ProductImage()
-                {
-                    Uri = accessPath,
-                    Timestamp = DateTime.Now,
-                    Product = productToUpdate,
-                };
-                await _context.ProductImages.AddAsync(productImage);
+                var allGenres = await productService.GetSortedAllGenres();
+                return View(new EditViewModel(product, allGenres, genres));
             }
 
             try
             {
-                await _context.SaveChangesAsync();
-                return RedirectToAction(nameof(Index));
+                await productService.EditPost(product, genres, files);
             }
-            catch (DbUpdateConcurrencyException)
+            catch (ArgumentException ex)
             {
-                if (!ProductExists(product.ProductId))
-                {
-                    return NotFound();
-                }
-                else
-                {
-                    throw;
-                }
+                // idの商品が見つからない場合はNofFound
+                logger.LogTrace(ex, "該当商品の取得に失敗しました");
+                return NotFound();
             }
+
+            return RedirectToAction(nameof(Index));
         }
 
         // GET: Product/Delete/5
         [Authorize(Roles = "Seller")]
-        public async Task<IActionResult> Delete(int? id)
+        public async Task<IActionResult> Delete(int id)
         {
-            if (id == null)
+            try
             {
+                return View(await productService.Delete(id));
+            }
+            catch (ArgumentException ex)
+            {
+                // idの商品が見つからない場合はNofFound
+                logger.LogTrace(ex, "該当商品の取得に失敗しました");
                 return NotFound();
             }
-
-            var product = await _context.Product
-                .FirstOrDefaultAsync(m => m.ProductId == id);
-            if (product == null)
-            {
-                return NotFound();
-            }
-
-            return View(product);
         }
 
         // POST: Product/Delete/5
@@ -263,15 +152,8 @@ namespace SampleMvcApp.Controllers
         [Authorize(Roles = "Seller")]
         public async Task<IActionResult> DeleteConfirmed(int id)
         {
-            var product = await _context.Product.FindAsync(id);
-            _context.Product.Remove(product);
-            await _context.SaveChangesAsync();
+            await productService.DeleteConfirmed(id);
             return RedirectToAction(nameof(Index));
-        }
-
-        private bool ProductExists(int id)
-        {
-            return _context.Product.Any(e => e.ProductId == id);
         }
     }
 }
