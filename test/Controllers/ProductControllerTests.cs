@@ -74,7 +74,13 @@ namespace SampleMvcApp.Tests
                         }
                     },
                 };
-                PS.Setup(x => x.Index()).ReturnsAsync(moqProducts);
+                PS.Setup(x =>
+                    x.Index(
+                        It.IsAny<int>(),
+                        It.IsAny<int>(),
+                        It.IsAny<string>(),
+                        It.IsAny<bool>()))
+                    .ReturnsAsync(moqProducts);
 
                 var c = new ProductController(logger, PS.Object);
                 #endregion

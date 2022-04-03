@@ -7,7 +7,11 @@ namespace SampleMvcApp.Services.Interface
 {
     public interface IProductService
     {
-        public Task<IEnumerable<Product>> Index();
+        public Task<IEnumerable<Product>> Index(
+            int page = 1,
+            int take = 20,
+            string sortBy = nameof(Product.ProductId),
+            bool orderByDesc = false);
 
         public Task<Product> Detail(int id);
 

@@ -25,9 +25,13 @@ namespace SampleMvcApp.Controllers
         }
 
         // GET: Product
-        public async Task<IActionResult> Index()
+        public async Task<IActionResult> Index(
+            int page = 1,
+            int take = 20,
+            string sortBy = nameof(Product.ProductId),
+            bool orderByDesc = false)
         {
-            return View(await productService.Index());
+            return View(await productService.Index(page, take, sortBy, orderByDesc));
         }
 
         // GET: Product/Create

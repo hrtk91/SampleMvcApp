@@ -25,16 +25,35 @@ namespace SampleMvcApp.Services
             this.PIS = pis;
         }
 
-        public async Task<IEnumerable<Product>> Index()
+        public async Task<IEnumerable<Product>> Index(
+            int page = 1,
+            int take = 20,
+            string sortBy = nameof(Product.ProductId),
+            bool orderByDesc = false)
         {
             try
             {
                 logger.LogInformation($"商品一覧取得サービス処理 : 開始");
-                return await context.Product
+
+                var list = context.Product
                         .Include(x => x.ProductImages)
                         .Include(x => x.Genres)
                         .Include(x => x.Shop)
                             .ThenInclude(x => x.Owner)
+                        .AsSplitQuery();
+                var ordered = sortBy switch
+                {
+                    nameof(Product.Name) =>
+                        orderByDesc ? list.OrderByDescending(x => x.Name) : list.OrderBy(x => x.Name),
+                    nameof(Product.Price) =>
+                        orderByDesc ? list.OrderByDescending(x => x.Price) : list.OrderBy(x => x.Price),
+                    _ =>
+                        orderByDesc ? list.OrderByDescending(x => x.ProductId) : list.OrderBy(x => x.ProductId),
+                };
+
+                return await ordered
+                        .Skip((page - 1) * take)
+                        .Take(take)
                         .ToListAsync();
             }
             catch(Exception ex)
