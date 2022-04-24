@@ -4,6 +4,6 @@ ENV ACCEPT_EULA "Y"
 ENV SA_PASSWORD "Abcd1234#"
 ENV MSSQL_PID "Express"
 
-COPY ./createuser.sql /tmp/
-COPY ./*.sh /tmp/
-CMD /bin/bash /tmp/entrypoint.sh
+COPY db/createuser.sql /tmp/
+COPY db/*.sh /tmp/
+ENTRYPOINT [ "/bin/bash", "/tmp/entrypoint.sh" ]

@@ -1,21 +1,20 @@
 # https://hub.docker.com/_/microsoft-dotnet
-FROM mcr.microsoft.com/dotnet/sdk:5.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:6.0 AS base
 ENV PATH="$PATH:~/.dotnet/tools"
 ENV ASPNETCORE_ENVIRONMENT="Staging"
-RUN dotnet tool install --global dotnet-ef --version 5.0.7
+COPY src /src
 
-WORKDIR /source
-COPY . ./aspnetapp/
-RUN dotnet build ./aspnetapp/SampleMvcApp.csproj
+FROM base as build
+RUN dotnet build "/src/SampleMvcApp.csproj"
 
-WORKDIR /source/aspnetapp
-RUN dotnet publish -c release -o /app --no-restore SampleMvcApp.csproj
+FROM build AS migration
+RUN dotnet tool install --global dotnet-ef --version 6.0.4
+RUN dotnet ef migrations add Initial --project /src/SampleMvcApp.csproj
+ENTRYPOINT [ "dotnet", "ef", "database", "update", "--project", "/src/SampleMvcApp.csproj", "--verbose"]
 
-# final stage/image
-# FROM mcr.microsoft.com/dotnet/aspnet:5.0
-# FROM mcr.microsoft.com/dotnet/sdk:5.0
-# COPY --from=build "/source/aspnetapp/." "/source/aspnetapp/"
-# COPY --from=build "/app" "/"
-# WORKDIR /app
+FROM build AS publish
+# RUN dotnet publish -c release -o /app /src/SampleMvcApp.csproj
+RUN dotnet publish -o /app /src/SampleMvcApp.csproj
 WORKDIR /app
-CMD /source/aspnetapp/entrypoint.sh
+RUN dotnet dev-certs https
+ENTRYPOINT [ "dotnet", "/app/SampleMvcApp.dll" ]

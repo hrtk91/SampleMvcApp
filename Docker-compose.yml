@@ -1,14 +1,37 @@
 version: '3'
 services:
     web:
-        depends_on:
-            - mssql
-        build: ./src/. 
+        build:
+            dockerfile: src/Dockerfile
+            context: .
+            target: publish
         ports:
             - "5001:5001"
             - "44349:44349"
+        depends_on:
+            - mssql
     mssql:
-        build: ./db/.
+        build:
+            dockerfile: db/Dockerfile
+            context: .
         ports:
             - "1433:1433"
-        
+    base:
+        build:
+            dockerfile: src/Dockerfile
+            context: .
+            target: build
+        ports:
+            - "5001:5001"
+            - "44349:44349"
+        profiles:
+            - base
+    migration:
+        build:
+            dockerfile: src/Dockerfile
+            context: .
+            target: migration
+        depends_on:
+            - mssql
+        profiles:
+            - migration
